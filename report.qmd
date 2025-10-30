@@ -1,23 +1,62 @@
 ---
 title: "EV Power - Lab 4 Project Report"
 format: typst
----
 
-# Example Solution 1
+---
 
 ## **Part 0: libraries**
 
 ```{r}
 
+library(readr)
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(usdata)
+library(ggplot2)
+
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: Are rate of EV registration associated with a demonstrated growth in renewable investment?
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
+
+renewable_use_23 <- read.csv("renew-use-2023.csv")
+wider23 <- renewable_use_23 |>
+   pivot_wider(names_from = "Energy_Source", values_from = "Renewable_Use_2023") |>
+   mutate(across(
+    -State,  
+    ~ .x |>
+      str_replace_all("[^0-9\\.]", "") %>%  
+      as.numeric()                         
+  ))
+
+renewable_use_22 <- read.csv("renew-use-2022.csv")
+wider22 <- renewable_use_22 |>
+   pivot_wider(names_from = "Energy_Source", values_from = "Renewable_Use_2022") |>
+   mutate(across(
+    -State,  
+    ~ .x |>
+      str_replace_all("[^0-9\\.]", "") %>%  
+      as.numeric()                         
+  ))
+
+state_ev_data <- read_csv("ev-registrations-by-state-2023.csv")
+colnames(state_ev_data)[1] <- "State"
+colnames(state_ev_data)[2] <- "Registrations"
+state_ev <- state_ev_data |>
+    slice(-1, -2) |>
+    mutate(State = state2abbr(State)) |>
+    mutate(across(
+        -State,
+        ~ .x |>
+            str_replace_all("[^0-9\\.]", "") %>%  
+      as.numeric()
+    ))
 
 ```
 
@@ -25,10 +64,32 @@ Chosen Question:
 
 ```{r}
 
+wider22 <- wider22 |>
+    mutate(Spend = rowSums(across(where(is.numeric)), na.rm = TRUE)) |>
+    select(State, Spend)
+
+wider23 <- wider23 |>
+    mutate(Spend = rowSums(across(where(is.numeric)), na.rm = TRUE)) |>
+    select(State, Spend) |>
+    mutate(State = str_to_upper(State))
+
+joined_spend <- wider22 |>
+  inner_join(wider23, join_by(State), suffix = c("_1", "_2")) |>
+  mutate(Increase = if_else(Spend_2 > Spend_1, 1, 0))
+
+
 ```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
+
+spend22 <- wider22 |>
+    ggplot(aes(x = State, y = Spend)) +
+    geom_col()
+
+spend23 <- wider23 |>
+    ggplot(aes(x = State, y = Spend)) +
+    geom_col()
 
 ```
